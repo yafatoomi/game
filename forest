@@ -1,0 +1,120 @@
+import streamlit as st
+from PIL import Image, ImageDraw
+
+# ---------- CONFIG ----------
+GRID_SIZE = (6, 6)
+FOREST_COLOR = {
+    "past": (34,139,34),      # darker forest
+    "present": (60,179,113)   # lighter forest
+}
+
+# ---------- GAME CLASS ----------
+class ForestAdventure:
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.timeline = "past"
+        self.player_pos = [5, 0]
+        self.goal_pos = [0, 5]
+        self.message = "Explore the forest!"
+        self.moves = 0
+
+    def move(self, dr, dc):
+        r, c = self.player_pos
+        nr, nc = r + dr, c + dc
+        if 0 <= nr < GRID_SIZE[0] and 0 <= nc < GRID_SIZE[1]:
+            self.player_pos = [nr, nc]
+            self.moves += 1
+            if self.player_pos == self.goal_pos:
+                self.message = "🎉 You found the magical tree!"
+        else:
+            self.message = "🚫 Can't move outside the forest."
+
+    def switch_timeline(self):
+        self.timeline = "present" if self.timeline == "past" else "past"
+        self.message = f"⏳ You jumped to the {self.timeline}!"
+
+# ---------- DRAWING FUNCTION ----------
+def draw_forest(game):
+    cell_size = 80
+    w, h = GRID_SIZE[1]*cell_size, GRID_SIZE[0]*cell_size
+    img = Image.new("RGB", (w, h), FOREST_COLOR[game.timeline])
+    draw = ImageDraw.Draw(img)
+
+    # Draw grid
+    for r in range(GRID_SIZE[0]):
+        for c in range(GRID_SIZE[1]):
+            x0, y0 = c*cell_size, r*cell_size
+            x1, y1 = x0+cell_size, y0+cell_size
+            draw.rectangle([x0, y0, x1, y1], outline=(0,100,0))
+
+    # Draw goal (tree)
+    gx, gy = game.goal_pos
+    draw.ellipse([(gx*cell_size+20, gy*cell_size+20),
+                  (gx*cell_size+60, gy*cell_size+60)], fill=(139,69,19))
+
+    # Draw player
+    px, py = game.player_pos
+    draw.ellipse([(py*cell_size+20, px*cell_size+20),
+                  (py*cell_size+60, px*cell_size+60)], fill=(255,215,0))
+    return img
+
+# ---------- STREAMLIT FRONT END ----------
+st.set_page_config(page_title="Forest Time Adventure", layout="centered")
+
+# session state
+if "screen" not in st.session_state:
+    st.session_state.screen = "home"
+if "game" not in st.session_state:
+    st.session_state.game = ForestAdventure()
+
+game = st.session_state.game
+
+# ---------- HOME SCREEN ----------
+if st.session_state.screen == "home":
+    st.title("🌲 Forest Time Adventure")
+    st.write("A time-travel puzzle through the ancient forest.")
+    st.image("https://i.imgur.com/yZ6x9lD.jpeg", caption="Mystic forest", use_container_width=True)
+    if st.button("▶️ Start Game"):
+        st.session_state.screen = "game"
+    st.button("ℹ️ How to Play", on_click=lambda: st.session_state.update({"screen":"help"}))
+    st.button("❌ Quit", on_click=lambda: st.stop())
+
+# ---------- HELP / DASHBOARD ----------
+elif st.session_state.screen == "help":
+    st.title("📜 How to Play")
+    st.write("""
+    - Use the arrow buttons to move your explorer.  
+    - 🌗 Switch between **Past** and **Present** forests.  
+    - Find the magical tree in the top-right corner.  
+    """)
+    if st.button("⬅️ Back"):
+        st.session_state.screen = "home"
+
+# ---------- GAMEPLAY ----------
+elif st.session_state.screen == "game":
+    st.header(f"Timeline: **{game.timeline.upper()}**")
+    img = draw_forest(game)
+    st.image(img, caption=game.message, use_container_width=False)
+
+    col1, col2, col3 = st.columns(3)
+    with col2:
+        if st.button("⬆️ Up"): game.move(-1, 0)
+    with col1:
+        if st.button("⬅️ Left"): game.move(0, -1)
+    with col3:
+        if st.button("➡️ Right"): game.move(0, 1)
+    col_d, col_c, col_r = st.columns(3)
+    with col_c:
+        if st.button("⬇️ Down"): game.move(1, 0)
+
+    st.write("")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        if st.button("🌗 Switch Time"): game.switch_timeline()
+    with c2:
+        if st.button("🔄 Restart"): game.reset()
+    with c3:
+        if st.button("🏠 Home"):
+            st.session_state.screen = "home"
