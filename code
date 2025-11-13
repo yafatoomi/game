@@ -1,0 +1,96 @@
+import streamlit as st
+import copy
+
+PAST_TEMPLATE = [
+    [".", ".", ".", "D"],
+    [".", "R", ".", "."],
+    [".", ".", ".", "P"]
+]
+FUTURE_TEMPLATE = [
+    [".", ".", ".", "D"],
+    [".", ".", ".", "."],
+    [".", ".", ".", "F"]
+]
+
+class TimeTravelGame:
+    def __init__(self):
+        self.reset()
+    def reset(self):
+        self.past = copy.deepcopy(PAST_TEMPLATE)
+        self.future = copy.deepcopy(FUTURE_TEMPLATE)
+        self.player_pos = [2, 3]
+        self.timeline = "past"
+        self.update_markers()
+    def update_markers(self):
+        for r in range(3):
+            for c in range(4):
+                if self.past[r][c] == "P": self.past[r][c] = "."
+                if self.future[r][c] == "F": self.future[r][c] = "."
+        if self.timeline == "past":
+            self.past[self.player_pos[0]][self.player_pos[1]] = "P"
+        else:
+            self.future[self.player_pos[0]][self.player_pos[1]] = "F"
+    def move(self, dr, dc):
+        grid = self.past if self.timeline == "past" else self.future
+        r, c = self.player_pos
+        nr, nc = r + dr, c + dc
+        if 0 <= nr < 3 and 0 <= nc < 4 and grid[nr][nc] not in ["D", "R"]:
+            grid[r][c] = "."
+            self.player_pos = [nr, nc]
+            self.update_markers()
+            if self.past[1][1] == ".":  # effect of past on future
+                self.future[1][1] = "."
+    def switch_timeline(self):
+        self.timeline = "future" if self.timeline == "past" else "past"
+        self.update_markers()
+    def check_win(self):
+        return self.timeline == "future" and self.player_pos == [0, 3]
+
+st.set_page_config(page_title="Time Travel Puzzle", page_icon="🕰️", layout="centered")
+
+if "game" not in st.session_state:
+    st.session_state.game = TimeTravelGame()
+game = st.session_state.game
+
+st.title("🕰️ Time Travel Puzzle")
+st.caption("Actions in the **Past** affect the **Future**. Reach the top-right corner in the Future timeline!")
+
+st.markdown(f"### Current Timeline: **{game.timeline.upper()}**")
+
+cols = st.columns(2)
+with cols[0]:
+    st.subheader("Past")
+    for row in game.past:
+        st.write(" ".join(row))
+with cols[1]:
+    st.subheader("Future")
+    for row in game.future:
+        st.write(" ".join(row))
+
+st.divider()
+st.write("### Controls")
+
+col1, col2, col3 = st.columns(3)
+with col2:
+    if st.button("⬆️ Up"): game.move(-1, 0)
+with col1:
+    if st.button("⬅️ Left"): game.move(0, -1)
+with col3:
+    if st.button("➡️ Right"): game.move(0, 1)
+
+down_col, center_col, right_col = st.columns(3)
+with center_col:
+    if st.button("⬇️ Down"): game.move(1, 0)
+
+st.write("")
+c1, c2, c3 = st.columns(3)
+with c1:
+    if st.button("🌗 Switch Timeline"): game.switch_timeline()
+with c2:
+    if st.button("🔄 Reset Game"): game.reset()
+
+if game.check_win():
+    st.success("🎉 You reached the goal in the Future timeline! Time restored!")
+
+st.markdown("---")
+st.caption("Made with ❤️ in Python using Streamlit.")
